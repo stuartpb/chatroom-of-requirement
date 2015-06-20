@@ -44,32 +44,113 @@ the same as what you'd see [in the GitHub repo I'm pushing it to][repo]).
 
 [repo]: https://github.com/stuartpb/chatroom-of-requirement
 
-I've been using
-Cloud9 for all my development needs for the last two and a half years, for
-[a wide number of reasons][SeattleJS slides]: suffice it to say that it is,
-in my opinion, the only way to code.
+I've been using Cloud9 for all my development needs for the last two and a half
+years, for [a wide number of reasons][SeattleJS slides]: suffice it to say that
+it is, in my opinion, the only way to code.
 
 [SeattleJS slides]: https://docs.google.com/presentation/d/1ckoGhFPK7mYdda58EBSKQAGz0qE2eKhRCQOUr9BOYBY/edit#slide=id.g538fb0397_0126
 
-## Creating and configuring the app
+If you aren't going to use Cloud9, you should still be able to follow along, so
+long as you are in a development environment with a [Bash][] shell and the
+following dependencies installed:
 
-Sign up for Heroku and Compose accounts.
+- Git
+- OpenSSH
+- the Heroku toolbelt
+- npm
 
-After authenticating to the Heroku toolbelt (if you haven't already done so),
-create the app:
+[Bash]: https://en.wikipedia.org/wiki/Bash_(Unix_shell)
+
+## Creating and configuring our app
+
+First, you will need to create accounts for [Heroku][] and [Compose][].
+
+If you haven't used Heroku before, you will need to
+[add an SSH key to your Heroku account][Heroku SSH] - if you already have
+[an SSH key you use for GitHub][GitHub SSH], I recommend using that.
+
+[Heroku SSH]: https://devcenter.heroku.com/articles/keys#adding-keys-to-heroku
+[GitHub SSH]: https://help.github.com/articles/generating-ssh-keys/
+
+As for Compose, I recommend creating new credentials for accessing RethinkDB,
+since you'll be including the private key of the keypair as part of your app.
+We can create them by running this command:
+
+```
+ssh-keygen -t rsa -N '' -f compose_rsa
+```
+
+We can then paste the content of the newly-created `compose_rsa.pub` file
+into the "Add a User" screen for your deployment (at
+`https://app.compose.io/` + the name of your account + `/deployments/` +
+the name of your deployment + `/users/new`).
+
+After installing the Heroku toolbelt (if you haven't already done so),
+we create the app (you may be prmopted for your username/password):
 
 ```
 $ heroku apps:create
 ```
 
-Then, add your key from Compose as a config variable for the app. Multi-line
-values like this key are fine, so long as you make sure to quote the string
+Then, we configure the new app with all the variables needed to connect to your
+RethinkDB deployment through an SSH tunnel on Compose (shown here with example
+values, as a single command broken across multiple lines with backslashes):
 
 ```
-$ heroku config:set "COMPOSE_IO_SSH_KEY=
-
-"
+$ heroku config:set \
+  COMPOSE_SSH_PUBLIC_HOSTNAME=portal.1.dblayer.com \
+  COMPOSE_SSH_PUBLIC_PORT=10000 \
+  COMPOSE_RETHINKDB_INTERNAL_IPS="10.0.0.98 10.0.0.99" \
+  COMPOSE_SSH_KEY="$(cat compose_rsa)"
 ```
+
+### Config variable breakdown
+
+```
+  COMPOSE_SSH_PUBLIC_HOSTNAME=portal.1.dblayer.com \
+```
+
+The public hostname of the SSH proxy for your deployment. This can be found in
+the last column of the "Deployment Topology" table of your deployment's
+dashboard page, or in the first line of the suggested SSH tunnel command in
+"Connect Strings" on that page (after `compose@`). It should be a domain name
+that ends with "dblayer.com".
+
+```
+  COMPOSE_SSH_PUBLIC_PORT=10000 \
+```
+
+The public port of the SSH proxy for your deployment. This can be found in the
+same places as the proxy's hostname, and should be a number somewhere above
+10000.
+
+```
+  COMPOSE_RETHINKDB_INTERNAL_IPS="10.0.0.98 10.0.0.99" \
+```
+
+A space-separated list (make sure the string is quoted) of the internal IP
+addresses of your RethinkDB members (cluster nodes). These can be found in the
+"Internal IP" column of the "Deployment Topology" table, on the first few rows
+(make sure to *only* include the internal IPs of the RethinkDB members, and
+*not* the internal IP of the SSH proxy). These should be IP addresses that
+start with `10.`.
+
+```
+  COMPOSE_SSH_KEY="$(cat compose_rsa)"
+```
+
+This adds the private SSH key you generated for Compose. Make sure to quote the
+value, as the file's contents will be expanded to a multi-line string (which
+would otherwise be separated and interpreted as multiple arguments).
+
+## The codebase
+
+Once you have configured your app, you can proceed to dive into its code. I'm
+going to list the contents of each file (or the commands involved in creating
+them) here, which you are free to copy and paste to recreate the project from
+scratch; however, you may find it easier to clone the finished project from
+its GitHub repo at https://github.com/stuartpb/chatroom-of-requirement and
+follow along by inspecting the checked-out files.
 
 ## Our app's overall entrypoint: tunnel-and-serve.sh
 
@@ -84,8 +165,12 @@ instantiate an SSH tunnel for the lifetime of our app:
 DYNO=${DYNO##*.}
 DYNO=${DYNO:-$RANDOM}
 
-ssh compose@portal.1.dblayer.com -i <(echo "$COMPOSE_IO_SSH_KEY") -p 10000 \
-  -NTL localhost:28015:10.0.0.$((99 - DYNO % 2)):28015 &
+ips=($COMPOSE_RETHINKDB_INTERNAL_IPS)
+nodes=${ips[@]}
+
+ssh -NT compose@$COMPOSE_SSH_PUBLIC_HOSTNAME -p $COMPOSE_SSH_PUBLIC_PORT \
+  -i <(echo "$COMPOSE_SSH_KEY") \
+  -L 127.0.0.1:28015:${ips[$((DYNO % nodes))]}:28015 &
 
 node server.js & wait %%
 
@@ -110,40 +195,60 @@ RethinkDB cluster node to connect to.
 
 [dyno vars]: https://devcenter.heroku.com/articles/dynos#local-environment-variables
 
-#### The SSH command parameters
+#### Listifying the internal IP addresses
 
 ```bash
-ssh compose@portal.1.dblayer.com -i <(echo "$COMPOSE_IO_SSH_KEY") -p 10000 \
+ips=($COMPOSE_RETHINKDB_INTERNAL_IPS)
+nodes=${ips[@]}
 ```
 
-This tells the SSH client to connect to Compose's servers, using
-(via [process substitution][]) the SSH key we added to our app's config
-environment earlier, on port 10000 (the port Compose
-[generally prefers to use][compose docs] for incoming connections to their
-databases).
+This converts the `COMPOSE_INTERNAL_IPS` variable into an [array][Bash arrays]
+that can be used by Bash, and saves the number of nodes as the length of the
+IP array.
+
+[Bash arrays]: http://tldp.org/LDP/abs/html/arrays.html
+
+#### The SSH command parameters (line 1)
+
+```bash
+ssh -NT compose@$COMPOSE_SSH_PUBLIC_HOSTNAME -p $COMPOSE_SSH_PUBLIC_PORT \
+```
+
+This tells the SSH client to connect to the SSH proxy Compose runs for you to
+access your RethinkDB nodes through, while **N**ot running a command or
+allocating a **T**erminal as the SSH client normally would (since we only want
+to create the tunnel).
+
+#### The SSH command parameters (line 2)
+
+```bash
+  -i <(echo "$COMPOSE_SSH_KEY") \
+```
+
+This tells SSH to use (via [process substitution][]) the SSH key we added to
+our deployment, and our app's config environment, earlier.
 
 [process substitution]: http://www.tldp.org/LDP/abs/html/process-sub.html
-[compose docs]: https://docs.compose.io/getting-started/compose.html
 
-#### The SSH command parameters, continued
+#### The SSH command parameters (line 3)
 
 ```bash
-  -NTL 127.0.0.1:28015:10.0.0.$((99 - DYNO % 2)):28015 &
+  -L 127.0.0.1:28015:${ips[$((DYNO % nodes))]}:28015 &
 ```
 
-This tells the SSH client to open a tunnel to the **L**ocal host (while
-**N**ot running a command or allocating a **T**erminal), specifically on the
-`127.0.0.1` loopback address on port 28015 (the default address and port for
-RethinkDB driver connections). The other end of the tunnel is hooked up on the
-remote server, to one of the RethinkDB nodes it can privately access at either
-`10.0.0.98` or `10.0.0.99` (on the RethinkDB port `28015`).
+This tells the SSH client to open a tunnel to the **L**ocal host, specifically
+on the `127.0.0.1` loopback address on port 28015 (the default address and port
+for RethinkDB driver connections). The other end of the tunnel is hooked up on
+the remote server, to one of the RethinkDB nodes it can privately access via
+their internal IPs (on the RethinkDB port `28015`).
 
-The dyno/random number is used as a kind of low-rent load balancing mechanism
-in the event that the app is scaled up to use multiple front-end dynos,
-assuring that evenly-numbered Heroku dynos will connect to one cluster node,
-and that odd-numbered nodes will connect to the other (or, if the dyno number
-is not specified, the connections to should be roughly evenly distributed
-at random).
+The IP to connect to is picked from our list, based on the dyno/random number
+we configured earlier. This works as a kind of low-rent load balancing
+mechanism in the event that the app is scaled up to use multiple front-end
+dynos, assuring that evenly-numbered Heroku dynos will connect to one cluster
+node, and that odd-numbered nodes will connect to the other (or, if the dyno
+number is not specified, the connections to nodes should be roughly evenly
+distributed at random).
 
 The `&` at the end tells Bash to run this tunnel in the background, as we run
 our next task: our Node.JS server script.
@@ -190,21 +295,125 @@ I described `rethinkdb`, `engine.io`, and `primus` above. Of the other three,
 `jade` is used for simplifying our HTML syntax, and `endex` is used for
 simplifying our database initialization.
 
-We will create six files:
+We will create seven files:
 
-- views/index.jade
-- static/client.js
 - server.js
 - pool.js
-- http.js
 - socket.js
+- http.js
+- views/index.jade
+- static/layout.css
+- static/client.js
 
+The first four files are for running our app's back-end server, while the last
+three files define our app's front-end client. There's nothing saying you
+*have* to lay an app out like this, but it allows for a relatively neat base
+of separated concerns on which to build upon as the apps complexity grows.
 
+## The Node server's entrypoint: server.js
 
-This isn't perfect, of course: it's lacking any kind of authentication system
+Once `tunnel-and-serve.js` has instantiated our connection to RethinkDB, we
+enter our app server proper at `server.js`. This script will tie together
+the other components of our app.
 
-You can go on to extend this to more complex queries: in fact, that's the
-notion we're working on to create a next-generation chat solution with
-[DingRoll][].
+(At this point, we're dealing with fairly ordinary Node modules and JavaScript
+promises, rather than the arcane arts of SSH tunnels and Bash scripting, so
+I'll be breaking down the structure of the scripts in slightly more broad
+terms - for a more in-depth explanation, you can search for tutorials on these
+general subjects, or reach out to me for an AirPair for a one-on-one
+explanation.
+
+```js
+// TODO: server.js
+```
+
+(TODO: describe server)
+
+(TODO: explain WebSocket wrapping thing, general Primus/engine.io concept)
+
+## Setting up our server-wide assets: pool.js
+
+```js
+// TODO: pool.js
+```
+
+This script creates a `pool` object that acts as a sort of global environment
+for sharing assets across the different components of our server (since we're
+defining these components in the form of Node modules which are otherwise
+encapsulated, not sharing a global state). It also handles the initialization
+of these assets, establishing the connections and ensuring they are ready.
+
+(TODO: break down what endex does, what runQuery does)
+
+## Handling real-time connections on the server: socket.js
+
+```js
+// TODO: socket.js
+```
+
+This script defines the handler for incoming socket connections provided by
+Primus, similarly to how an HTTP app defines a handler for HTTP requests
+provided by Node's `http` module.
+
+(TODO: break down message handler conditions)
+
+## Providing our client to browsers: http.js
+
+```js
+// TODO: http.js
+```
+
+This script provides a traditional Node.JS HTTP server app, which we use to
+serve mostly static assets.
+
+(TODO: break down middleware)
+
+There are other ways we could serve these assets, particularly if we're going
+to keep them static; however, defining it as an Express server allows us to
+easily expand the HTTP server to add more dynamic components to our
+statically-served pages down the line, without requiring them to burden our
+real-time connections for actions that are better handled through form
+submission.
+
+## Setting up our app's client HTML structure: views/index.jade
+
+```jade
+// TODO: views/index.jade
+```
+
+(TODO: describe template)
+
+## Laying out our client's UI: static/layout.css
+
+```css
+/* TODO: static/layout.css */
+```
+
+(TODO: describe Primus client)
+
+## Writing our client's code: static/client.js
+
+```js
+// TODO: static/client.js
+```
+
+(TODO: describe Primus client, connection establishment, engine.io)
+
+(TODO: describe getting elements and hooking them up to events)
+
+## Conclusion
+
+This isn't perfect, of course: for one thing, it's lacking any kind of
+authentication or ownership mechanisms (which all sufficiently complex chat
+services [eventually grow to need][IRC]). Introducing these extended features is
+left as an exercise for the reader: I recommend looking into [Passwordless][]
+and the other tutorials from [RethinkDB's documentation][].
+
+[Passwordless]: https://passwordless.net/
+[IRC]: https://en.wikipedia.org/wiki/Internet_Relay_Chat_services
+
+Using the power of RethinkDB, you can go on to extend this clasic chat model to
+use more complex queries: in fact, that's the notion we're working on to create
+a next-generation chat solution with [DingRoll][].
 
 [DingRoll]: https://dingroll.com/

@@ -1,8 +1,12 @@
 DYNO=${DYNO##*.}
 DYNO=${DYNO:-$RANDOM}
 
-ssh compose@portal.1.dblayer.com -i <(echo "$COMPOSE_IO_SSH_KEY") -p 10000 \
-  -NTL localhost:28015:10.0.0.$((99 - DYNO % 2)):28015 &
+ips=($COMPOSE_RETHINKDB_INTERNAL_IPS)
+nodes=${ips[@]}
+
+ssh -NT compose@$COMPOSE_SSH_PUBLIC_HOSTNAME -p $COMPOSE_SSH_PUBLIC_PORT \
+  -i <(echo "$COMPOSE_SSH_KEY") \
+  -L 127.0.0.1:28015:${ips[$((DYNO % nodes))]}:28015 &
 
 node server.js & wait %%
 
