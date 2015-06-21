@@ -63,6 +63,4 @@ socket.on("data", function(data) {
   }
 });
 
-
-// start out in the "lobby"
 joinRoom('');
