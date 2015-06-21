@@ -7,7 +7,7 @@ nodes=${#ips[@]}
 identity=$(mktemp)
 echo "$COMPOSE_SSH_KEY" >$identity
 
-ssh -fo ExitOnForwardFailure=yes \
+ssh -fo ExitOnForwardFailure=yes -o StrictHostKeyChecking=no \
   -NT compose@$COMPOSE_SSH_PUBLIC_HOSTNAME -p $COMPOSE_SSH_PUBLIC_PORT \
   -i $identity \
   -L 127.0.0.1:28015:${ips[$((DYNO % nodes))]}:28015
