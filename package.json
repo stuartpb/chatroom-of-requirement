@@ -24,6 +24,6 @@
     "express": "^4.13.0",
     "jade": "^1.11.0",
     "primus": "^3.1.1",
-    "rethinkdb": "^2.0.0-2"
+    "rethinkdb": "^2.0.0"
   }
 }
