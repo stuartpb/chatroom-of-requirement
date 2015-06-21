@@ -168,8 +168,11 @@ DYNO=${DYNO:-$RANDOM}
 ips=($COMPOSE_RETHINKDB_INTERNAL_IPS)
 nodes=${#ips[@]}
 
+identity=$(mktemp)
+echo "$COMPOSE_SSH_KEY" >$identity
+
 ssh -NT compose@$COMPOSE_SSH_PUBLIC_HOSTNAME -p $COMPOSE_SSH_PUBLIC_PORT \
-  -i <(echo "$COMPOSE_SSH_KEY") \
+  -i $identity \
   -L 127.0.0.1:28015:${ips[$((DYNO % nodes))]}:28015 &
 
 node server.js & wait %%
@@ -208,6 +211,21 @@ IP array.
 
 [Bash arrays]: http://tldp.org/LDP/abs/html/arrays.html
 
+#### Saving the SSH identity to a temporary file
+
+```bash
+identity=$(mktemp)
+echo "$COMPOSE_SSH_KEY" >$identity
+```
+
+This saves the SSH key we added to our deployment (and our app's config
+environment) earlier into a temporary file (due to a
+[weird SSH behavior][so-101900] that makes it impossible to use
+[process substitution][] with `ssh`).
+
+[so-101900]: http://unix.stackexchange.com/questions/101900
+[process substitution]: http://www.tldp.org/LDP/abs/html/process-sub.html
+
 #### The SSH command parameters (line 1)
 
 ```bash
@@ -222,13 +240,11 @@ to create the tunnel).
 #### The SSH command parameters (line 2)
 
 ```bash
-  -i <(echo "$COMPOSE_SSH_KEY") \
+  -i $identity \
 ```
 
-This tells SSH to use (via [process substitution][]) the SSH key we added to
-our deployment, and our app's config environment, earlier.
-
-[process substitution]: http://www.tldp.org/LDP/abs/html/process-sub.html
+This tells SSH to use our configured SSH key as its identity to connect to the
+remote server.
 
 #### The SSH command parameters (line 3)
 
