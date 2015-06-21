@@ -18,11 +18,11 @@ function deliverMessage(message){
   messageAuthor.className = 'msg-author';
   messageAuthor.textContent = message.author;
   messageCard.appendChild(messageAuthor);
+  messageCard.appendChild(document.createTextNode(' '));
   var messageBody = document.createElement('span');
   messageBody.className = 'msg-body';
   messageBody.textContent = message.body;
   messageCard.appendChild(messageBody);
-  messageCard.appendChild(document.createTextNode(' '));
 
   var follow = messageArea.scrollHeight ==
     messageArea.scrollTop + messageArea.clientHeight;
