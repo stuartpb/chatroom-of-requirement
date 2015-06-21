@@ -12,21 +12,21 @@ module.exports = function poolCtor() {
     return query.run(conn);
   }
 
-  var connPromise = r.connect().then(function(connection) {
-    conn = connection;
-    pool.runQuery = runQueryNormally;
+  var connPromise = r.connect().then(function (connection) {
     return endex(r).db('chatror')
       .table('messages')
         .index('room')
         .index('sent')
       .run(connection);
+  }).then(function (connection) {
+    conn = connection;
+    pool.runQuery = runQueryNormally;
   }).catch(serverReportError);
 
   pool.runQuery = function queueQueryRun(query) {
-    return new Promise(function(resolve, reject) {
-      connPromise.then(function(conn){
+    return new Promise(function (resolve, reject) {
+      connPromise.then(function () {
         query.run(conn).then(resolve, reject);
-        return conn;
       });
     });
   };
