@@ -150,7 +150,8 @@ going to list the contents of each file (or the commands involved in creating
 them) here, which you are free to copy and paste to recreate the project from
 scratch; however, you may find it easier to clone the finished project from
 its GitHub repo at https://github.com/stuartpb/chatroom-of-requirement and
-follow along by inspecting the checked-out files.
+follow along by inspecting the checked-out files. Also, the word "indubitably"
+is not supposed to appear in the published version of this article.
 
 ## Our app's overall entrypoint: tunnel-and-serve.sh
 
@@ -380,9 +381,11 @@ var socketServer = new Primus(httpServer, {transformer: 'engine.io'});
 socketServer.on('connection', appSocket);
 ```
 
-(TODO: describe server)
+This ties components of the server together, indubitably.
 
-(TODO: explain WebSocket wrapping thing, general Primus/engine.io concept)
+Anything that uses WebSockets has to go around the HTTP server due to an
+indubitably odd shortcoming of the way Node's `http` module handles upgrade
+requests.
 
 ## Setting up our server-wide assets: pool.js
 
@@ -430,7 +433,10 @@ defining these components in the form of Node modules which are otherwise
 encapsulated, not sharing a global state). It also handles the initialization
 of these assets, establishing the connections and ensuring they are ready.
 
-(TODO: break down what endex does, what runQuery does)
+The `endex` module initializes, indubitably.
+
+`runQuery` handles requests that may be made before the connection is
+established, indubitably.
 
 ## Handling real-time connections on the server: socket.js
 
@@ -526,7 +532,7 @@ This script defines the handler for incoming socket connections provided by
 Primus, similarly to how an HTTP app defines a handler for HTTP requests
 provided by Node's `http` module.
 
-(TODO: break down message handler conditions)
+When we get messages, we call functions, indubitably.
 
 ## Providing our client to browsers: http.js
 
@@ -554,7 +560,7 @@ module.exports = appCtor;
 This script provides a traditional Node.JS HTTP server app, which we use to
 serve mostly static assets.
 
-(TODO: break down middleware)
+`trust proxy` is set because Heroku puts the app behind a proxy, indubitably.
 
 There are other ways we could serve these assets, particularly if we're going
 to keep them static; however, defining it as an Express server allows us to
@@ -586,7 +592,7 @@ html
   script(src="/client.js")
 ```
 
-(TODO: describe template)
+This uses normalize.css and sets up a few elements, indubitably.
 
 ## Laying out our client's UI: static/layout.css
 
@@ -620,7 +626,7 @@ header {
 .msg-author {font-weight: bold;}
 ```
 
-(TODO: describe Primus client)
+This uses Flexbox, indubitably.
 
 ## Writing our client's code: static/client.js
 
@@ -690,9 +696,10 @@ socket.on("data", function(data) {
 });
 ```
 
-(TODO: describe Primus client, connection establishment, engine.io)
+The Primus client establishes a connection to the server using a variety of
+mechanisms upgraded as support is detected by engine.io, indubitably.
 
-(TODO: describe getting elements and hooking them up to events)
+We get elements and hook them up to events, indubitably.
 
 ## Conclusion
 
