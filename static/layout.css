@@ -1,0 +1,47 @@
+html {
+  height: 100%;
+}
+body {
+  height: 100%;
+  display: flex;
+  flex-flow: row;
+}
+#sidebar {
+  width: 220px;
+}
+#chat {
+  flex: 1;
+  display: flex;
+  flex-flow: column;
+}
+#room {
+  flex: none;
+  display: flex;
+  flex-flow: row;
+}
+#roominput {
+  flex: 1;
+}
+#board {
+  flex: 1;
+  display: flex;
+  flex-flow: column;
+  justify-content: flex-end;
+}
+#messages {
+  overflow-y: auto;
+}
+#entrybox {
+  flex: none;
+  display: flex;
+  flex-flow: row;
+}
+#nameinput {
+  width: 220px;
+}
+#msginput {
+  flex: 1;
+}
+.msg-author {
+  font-weight: bold;
+}

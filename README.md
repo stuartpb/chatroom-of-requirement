@@ -287,13 +287,14 @@ dependencies (installing them locally in the process):
 
 ```
 $ npm init
-$ npm install --save engine.io primus rethinkdb endex express jade
+$ npm install --save engine.io primus rethinkdb endex express jade bluebird
 ```
 
-I described `rethinkdb`, `engine.io`, and `primus` above. Of the other three,
+I described `rethinkdb`, `engine.io`, and `primus` above. Of the other four,
 `express` is used to simplify writing the plain HTTP routes of our app,
-`jade` is used for simplifying our HTML syntax, and `endex` is used for
-simplifying our database initialization.
+`jade` is used for simplifying our HTML syntax, `endex` is used for
+simplifying our database initialization, and `bluebird` is used for
+constructing our own async promises.
 
 We will create seven files:
 
