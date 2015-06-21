@@ -2,15 +2,9 @@ html {height: 100%;}
 body {
   height: 100%;
   display: flex;
-  flex-flow: row;
-}
-#sidebar {width: 220px;}
-#chat {
-  flex: 1;
-  display: flex;
   flex-flow: column;
 }
-#room {
+header {
   flex: none;
   display: flex;
   flex-flow: row;

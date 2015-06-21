@@ -574,18 +574,16 @@ html
     link(rel="stylesheet",href="https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.min.css")
     link(rel="stylesheet", href="/layout.css")
   body
-    #sidebar.sidebar
-    #chat.chat
-      #room.topper
-        input#roominput
-      #board
-        #messages
-      form#entrybox
-        input#nameinput(value="Anonymous")
-        input#msginput
-        button(type="submit") Send
-    script(src="/primus/primus.js")
-    script(src="/client.js")
+    header
+      input#roominput
+    #board
+      #messages
+    form#entrybox
+      input#nameinput(value="Anonymous")
+      input#msginput
+      button(type="submit") Send
+  script(src="/primus/primus.js")
+  script(src="/client.js")
 ```
 
 (TODO: describe template)
@@ -597,15 +595,9 @@ html {height: 100%;}
 body {
   height: 100%;
   display: flex;
-  flex-flow: row;
-}
-#sidebar {width: 220px;}
-#chat {
-  flex: 1;
-  display: flex;
   flex-flow: column;
 }
-#room {
+header {
   flex: none;
   display: flex;
   flex-flow: row;
