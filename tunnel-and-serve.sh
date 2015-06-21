@@ -7,10 +7,11 @@ nodes=${#ips[@]}
 identity=$(mktemp)
 echo "$COMPOSE_SSH_KEY" >$identity
 
-ssh -fo ExitOnForwardFailure=yes -o StrictHostKeyChecking=no \
-  -NT compose@$COMPOSE_SSH_PUBLIC_HOSTNAME -p $COMPOSE_SSH_PUBLIC_PORT \
+ssh -NT compose@$COMPOSE_SSH_PUBLIC_HOSTNAME -p $COMPOSE_SSH_PUBLIC_PORT \
+  -o StrictHostKeyChecking=no -o LogLevel=error \
   -i $identity \
-  -L 127.0.0.1:28015:${ips[$((DYNO % nodes))]}:28015
+  -L 127.0.0.1:28015:${ips[$((DYNO % nodes))]}:28015 \
+  -fo ExitOnForwardFailure=yes
 
 node server.js & wait %%
 

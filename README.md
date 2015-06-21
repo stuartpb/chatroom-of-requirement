@@ -172,8 +172,10 @@ identity=$(mktemp)
 echo "$COMPOSE_SSH_KEY" >$identity
 
 ssh -NT compose@$COMPOSE_SSH_PUBLIC_HOSTNAME -p $COMPOSE_SSH_PUBLIC_PORT \
+  -o StrictHostKeyChecking=no -o LogLevel=error \
   -i $identity \
-  -L 127.0.0.1:28015:${ips[$((DYNO % nodes))]}:28015 &
+  -L 127.0.0.1:28015:${ips[$((DYNO % nodes))]}:28015 \
+  -fo ExitOnForwardFailure=yes
 
 node server.js & wait %%
 
@@ -240,16 +242,26 @@ to create the tunnel).
 #### The SSH command parameters (line 2)
 
 ```bash
-  -i $identity \
+  -o StrictHostKeyChecking=no -o LogLevel=error \
 ```
 
-This tells SSH to use our configured SSH key as its identity to connect to the
-remote server.
+This tells the SSH client not to throw an error on encountering the remote
+server for the first time and not having anybody available to approve it,
+and to not print a warning that it's trusting this remote server.
 
 #### The SSH command parameters (line 3)
 
 ```bash
-  -L 127.0.0.1:28015:${ips[$((DYNO % nodes))]}:28015 &
+  -i $identity \
+```
+
+This tells the SSH client to use our configured SSH key as its identity to
+connect to the remote server.
+
+#### The SSH command parameters (line 4)
+
+```bash
+  -L 127.0.0.1:28015:${ips[$((DYNO % nodes))]}:28015 \
 ```
 
 This tells the SSH client to open a tunnel to the **L**ocal host, specifically
@@ -266,8 +278,19 @@ node, and that odd-numbered nodes will connect to the other (or, if the dyno
 number is not specified, the connections to nodes should be roughly evenly
 distributed at random).
 
-The `&` at the end tells Bash to run this tunnel in the background, as we run
-our next task: our Node.JS server script.
+#### The SSH command parameters (line 5)
+
+```bash
+  -fo ExitOnForwardFailure=yes
+```
+
+This tells the SSH client to,
+[after establishing the tunnel][ExitOnForwardFailure], go to the background as
+we run our next task (the Node.JS server script).
+
+[ExitOnForwardFailure]: http://stackoverflow.com/a/12868885/34799
+
+#### Running the Node server
 
 ```bash
 node server.js & wait %%
@@ -278,6 +301,8 @@ script can handle [signals][] in the event that the server does not exit on its
 own (in other words, if the server doesn't crash).
 
 [signals]: http://unix.stackexchange.com/questions/146756/forward-sigterm-to-child-in-bash
+
+#### Configuring traps
 
 ```bash
 trap exit SIGTERM SIGKILL
