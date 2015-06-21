@@ -2,7 +2,7 @@ DYNO=${DYNO##*.}
 DYNO=${DYNO:-$RANDOM}
 
 ips=($COMPOSE_RETHINKDB_INTERNAL_IPS)
-nodes=${ips[@]}
+nodes=${#ips[@]}
 
 ssh -NT compose@$COMPOSE_SSH_PUBLIC_HOSTNAME -p $COMPOSE_SSH_PUBLIC_PORT \
   -i <(echo "$COMPOSE_SSH_KEY") \
