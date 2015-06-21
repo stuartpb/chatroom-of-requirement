@@ -575,7 +575,7 @@ html
     link(rel="stylesheet", href="/layout.css")
   body
     header
-      input#roominput
+      input#roominput(placeholder="Your room name here")
     #board
       #messages
     form#entrybox
