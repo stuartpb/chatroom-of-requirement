@@ -47,6 +47,7 @@ roomInput.addEventListener('input', function setAdHocFilter() {
 msgForm.addEventListener('submit', function sendMessage(evt){
   createMessage({
     body: msgInput.value,
+    room: roomInput.value,
     author: nameInput.value
   });
   msgInput.value = '';
@@ -61,3 +62,7 @@ socket.on("data", function(data) {
     console.error('Unrecognized message type', data);
   }
 });
+
+
+// start out in the "lobby"
+joinRoom('');
