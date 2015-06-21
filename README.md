@@ -536,7 +536,7 @@ html
     #sidebar.sidebar
     #chat.chat
       #room.topper
-        input#rrominput
+        input#roominput
       #board
         #messages
       form#entrybox
