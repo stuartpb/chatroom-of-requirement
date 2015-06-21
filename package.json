@@ -1,0 +1,29 @@
+{
+  "name": "chatroom-of-requirement",
+  "version": "0.1.0",
+  "description": "Sample app for Chatroom of Requirement article",
+  "main": "http.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stuartpb/chatroom-of-requirement.git"
+  },
+  "author": "Stuart P. Bentley <stuart@testtrack4.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/stuartpb/chatroom-of-requirement/issues"
+  },
+  "homepage": "https://github.com/stuartpb/chatroom-of-requirement",
+  "dependencies": {
+    "bluebird": "^2.9.30",
+    "endex": "^0.2.1",
+    "engine.io": "^1.5.1",
+    "express": "^4.13.0",
+    "jade": "^1.11.0",
+    "primus": "^3.1.1",
+    "rethinkdb": "^2.0.0-2"
+  }
+}
