@@ -15,6 +15,7 @@ function socketAppCtor(cfg, pool) { return function socketApp(socket) {
     return pool.runQuery(r.table('messages').insert({
       body: message.body,
       room: message.room,
+      author: message.author,
       sent: r.now()
     }));
   }

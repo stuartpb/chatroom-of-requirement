@@ -325,7 +325,18 @@ general subjects, or reach out to me for an AirPair for a one-on-one
 explanation.
 
 ```js
-// TODO: server.js
+var http = require('http');
+var Primus = require('primus');
+
+var pool = require('./pool.js')();
+var appHttp = require('./http.js')(pool);
+var appSocket= require('./socket.js')(pool);
+
+var httpServer=require('http').createServer(appHttp);
+httpServer.listen(process.env.PORT || 5000, process.env.IP || '0.0.0.0');
+
+var socketServer = new Primus(httpServer, {transformer: 'engine.io'});
+socketServer.on('connection', appSocket);
 ```
 
 (TODO: describe server)
@@ -335,7 +346,41 @@ explanation.
 ## Setting up our server-wide assets: pool.js
 
 ```js
-// TODO: pool.js
+var r = require('rethinkdb');
+var endex = require('endex');
+var Promise = require('bluebird');
+
+module.exports = function poolCtor(cfg) {
+  var pool = {};
+  var serverReportError = console.error.bind(console);
+
+  var conn;
+
+  function runQueryNormally(query) {
+    return query.run(conn);
+  }
+
+  var connPromise = r.connect(cfg.rethinkdb).then(function(connection) {
+    conn = connection;
+    pool.runQuery = runQueryNormally;
+    return endex(r).db(cfg.rethinkdb && cfg.rethinkdb.db || 'chatror')
+      .table('messages')
+        .index('room')
+        .index('sent')
+      .run(connection);
+  }).catch(serverReportError);
+
+  pool.runQuery = function queueQueryRun(query) {
+    return new Promise(function(resolve, reject) {
+      connPromise.then(function(conn){
+        query.run(conn).then(resolve, reject);
+        return conn;
+      });
+    });
+  };
+
+  return pool;
+};
 ```
 
 This script creates a `pool` object that acts as a sort of global environment
@@ -349,7 +394,91 @@ of these assets, establishing the connections and ensuring they are ready.
 ## Handling real-time connections on the server: socket.js
 
 ```js
-// TODO: socket.js
+var r = require('rethinkdb');
+
+var BACKLOG_LIMIT = 100;
+
+function socketAppCtor(cfg, pool) { return function socketApp(socket) {
+
+  function reportError(err){
+    socket.write({
+      type: 'error',
+      err: err
+    });
+  }
+
+ function createMessage(message) {
+    return pool.runQuery(r.table('messages').insert({
+      body: message.body,
+      room: message.room,
+      author: message.author,
+      sent: r.now()
+    }));
+  }
+
+  function deliverMessage(message){
+    socket.write({
+      type: 'deliverMessage',
+      message: message
+    });
+  }
+
+  var roomCursor = null;
+
+  function closeRoomCursor() {
+    if (roomCursor) {
+      roomCursor.close();
+      roomCursor = null;
+    }
+  }
+
+  function setRoomCursor(cursor) {
+    return roomCursor = cursor;
+  }
+
+  function joinRoom(roomName) {
+    closeRoomCursor();
+    pool.runQuery(
+      r.table('messages').orderBy({index:r.desc('sent')})
+        .filter(r.row('room').eq(roomName))
+        .limit(BACKLOG_LIMIT).orderBy('sent'))
+      .then(setRoomCursor)
+      .then(function(){
+        roomCursor.each(function (err, message) {
+          if (err) return reportError(err);
+          deliverMessage(message);
+        }, switchToChangefeed);
+      })
+      .catch(reportError);
+
+    function switchToChangefeed() {
+      closeRoomCursor();
+      pool.runQuery(r.table('messages')
+        .filter(r.row('room').eq(roomName)).changes())
+        .then(setRoomCursor)
+        .then(function(){
+          roomCursor.each(function (err, changes) {
+            if (err) return reportError(err);
+            deliverMessage(changes.new_val);
+          });
+        })
+        .catch(reportError);
+    }
+  }
+
+  socket.on('data', function(data) {
+    if (data.type == 'error') return console.error(data);
+    else if (data.type == 'createMessage') {
+      return createMessage(data.message);
+    } else if (data.type == 'joinRoom') {
+      return joinRoom(data.room);
+    } else {
+      return reportError('Unrecognized message type ' + data.type);
+    }
+  });
+}}
+
+module.exports = socketAppCtor;
 ```
 
 This script defines the handler for incoming socket connections provided by
@@ -361,7 +490,24 @@ provided by Node's `http` module.
 ## Providing our client to browsers: http.js
 
 ```js
-// TODO: http.js
+var express = require('express');
+
+function appCtor(pool) {
+  var app = express();
+
+  app.set('trust proxy', true);
+  app.set('view engine', 'jade');
+  app.set('views', __dirname + '/views');
+  app.use(express.static(__dirname + '/static'));
+
+  app.get('/', function(req, res) {
+    return res.render('index');
+  });
+
+  return app;
+}
+
+module.exports = appCtor;
 ```
 
 This script provides a traditional Node.JS HTTP server app, which we use to
@@ -379,7 +525,26 @@ submission.
 ## Setting up our app's client HTML structure: views/index.jade
 
 ```jade
-// TODO: views/index.jade
+doctype
+html
+  head
+    meta(charset="UTF-8")
+    title Chatroom of Requirement
+    link(rel="stylesheet",href="https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.min.css")
+    link(rel="stylesheet", href="/layout.css")
+  body
+    #sidebar.sidebar
+    #chat.chat
+      #room.topper
+        input#rrominput
+      #board
+        #messages
+      form#entrybox
+        input#nameinput(value="Anonymous")
+        input#msginput
+        button(type="submit") Send
+    script(src="/primus/primus.js")
+    script(src="/client.js")
 ```
 
 (TODO: describe template)
@@ -387,7 +552,39 @@ submission.
 ## Laying out our client's UI: static/layout.css
 
 ```css
-/* TODO: static/layout.css */
+html {height: 100%;}
+body {
+  height: 100%;
+  display: flex;
+  flex-flow: row;
+}
+#sidebar {width: 220px;}
+#chat {
+  flex: 1;
+  display: flex;
+  flex-flow: column;
+}
+#room {
+  flex: none;
+  display: flex;
+  flex-flow: row;
+}
+#roominput {flex: 1;}
+#board {
+  flex: 1;
+  display: flex;
+  flex-flow: column;
+  justify-content: flex-end;
+}
+#messages {overflow-y: auto;}
+#entrybox {
+  flex: none;
+  display: flex;
+  flex-flow: row;
+}
+#nameinput {width: 220px;}
+#msginput {flex: 1;}
+.msg-author {font-weight: bold;}
 ```
 
 (TODO: describe Primus client)
@@ -395,7 +592,69 @@ submission.
 ## Writing our client's code: static/client.js
 
 ```js
-// TODO: static/client.js
+/* global Primus */
+
+var socket = new Primus();
+
+function joinRoom(roomName) {
+  return socket.write({type:'joinRoom', room: roomName});
+}
+
+function createMessage(message) {
+  return socket.write({type:'createMessage', message: message});
+}
+
+var messageArea = document.getElementById('messages');
+
+function deliverMessage(message){
+  var messageCard = document.createElement('div');
+  var messageAuthor = document.createElement('span');
+  messageAuthor.className = 'msg-author';
+  messageAuthor.textContent = message.author;
+  messageCard.appendChild(messageAuthor);
+  var messageBody = document.createElement('span');
+  messageBody.className = 'msg-body';
+  messageBody.textContent = message.body;
+  messageCard.appendChild(messageBody);
+  messageCard.appendChild(document.createTextNode(' '));
+
+  var follow = messageArea.scrollHeight ==
+    messageArea.scrollTop + messageArea.clientHeight;
+  messageArea.appendChild(messageCard);
+  if (follow) messageArea.scrollTop = messageArea.scrollHeight;
+}
+
+var roomInput = document.getElementById('roominput');
+var msgForm = document.getElementById('entrybox');
+var msgInput = document.getElementById('msginput');
+var nameInput = document.getElementById('nameinput');
+
+roomInput.addEventListener('input', function setAdHocFilter() {
+  var card = messageArea.lastChild;
+  while (card) {
+    messageArea.removeChild(card);
+    card = messageArea.lastChild;
+  }
+  joinRoom(roomInput.value);
+});
+
+msgForm.addEventListener('submit', function sendMessage(evt){
+  createMessage({
+    body: msgInput.value,
+    author: nameInput.value
+  });
+  msgInput.value = '';
+  return evt.preventDefault();
+});
+
+socket.on("data", function(data) {
+  if (data.type == 'error') return console.error(data);
+  else if (data.type == 'deliverMessage') {
+    return deliverMessage(data.message);
+  } else {
+    console.error('Unrecognized message type', data);
+  }
+});
 ```
 
 (TODO: describe Primus client, connection establishment, engine.io)
