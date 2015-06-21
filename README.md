@@ -350,7 +350,7 @@ var r = require('rethinkdb');
 var endex = require('endex');
 var Promise = require('bluebird');
 
-module.exports = function poolCtor(cfg) {
+module.exports = function poolCtor() {
   var pool = {};
   var serverReportError = console.error.bind(console);
 
@@ -360,10 +360,10 @@ module.exports = function poolCtor(cfg) {
     return query.run(conn);
   }
 
-  var connPromise = r.connect(cfg.rethinkdb).then(function(connection) {
+  var connPromise = r.connect().then(function(connection) {
     conn = connection;
     pool.runQuery = runQueryNormally;
-    return endex(r).db(cfg.rethinkdb && cfg.rethinkdb.db || 'chatror')
+    return endex(r).db('chatror')
       .table('messages')
         .index('room')
         .index('sent')
@@ -398,7 +398,7 @@ var r = require('rethinkdb');
 
 var BACKLOG_LIMIT = 100;
 
-function socketAppCtor(cfg, pool) { return function socketApp(socket) {
+function socketAppCtor(pool) { return function socketApp(socket) {
 
   function reportError(err){
     socket.write({

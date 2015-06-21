@@ -2,7 +2,7 @@ var r = require('rethinkdb');
 
 var BACKLOG_LIMIT = 100;
 
-function socketAppCtor(cfg, pool) { return function socketApp(socket) {
+function socketAppCtor(pool) { return function socketApp(socket) {
 
   function reportError(err){
     socket.write({
