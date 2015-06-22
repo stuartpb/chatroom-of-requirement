@@ -18,7 +18,6 @@
   },
   "homepage": "https://github.com/stuartpb/chatroom-of-requirement",
   "dependencies": {
-    "bluebird": "^2.9.30",
     "endex": "^0.2.1",
     "engine.io": "^1.5.1",
     "express": "^4.13.0",

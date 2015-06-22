@@ -1,6 +1,5 @@
 var r = require('rethinkdb');
 var endex = require('endex');
-var Promise = require('bluebird');
 
 module.exports = function poolCtor() {
   var pool = {};
@@ -24,10 +23,8 @@ module.exports = function poolCtor() {
   }).catch(serverReportError);
 
   pool.runQuery = function queueQueryRun(query) {
-    return new Promise(function (resolve, reject) {
-      connPromise.then(function () {
-        query.run(conn).then(resolve, reject);
-      });
+    return connPromise.then(function () {
+      return query.run(conn);
     });
   };
 
