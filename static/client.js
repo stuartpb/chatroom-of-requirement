@@ -35,7 +35,7 @@ var msgForm = document.getElementById('entrybox');
 var msgInput = document.getElementById('msginput');
 var nameInput = document.getElementById('nameinput');
 
-roomInput.addEventListener('input', function setAdHocFilter() {
+roomInput.addEventListener('input', function setRoomName() {
   var card = messageArea.lastChild;
   while (card) {
     messageArea.removeChild(card);
